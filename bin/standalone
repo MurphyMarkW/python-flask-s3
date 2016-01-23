@@ -1,0 +1,102 @@
+#!/usr/bin/env python
+
+import sys
+import logging
+import argparse
+
+import flask
+import flasks3
+
+
+def setup_logging(log_levels, log_stream, **kwargs):
+    """ Sets up basic logging.
+    """
+    logging.basicConfig(
+        level=min(log_levels),
+        stream=log_stream,
+    )
+
+def main(host, port, debug_flask=False, **kwargs):
+    """ Run flask app.
+    """
+    app = flask.Flask(__name__)
+
+    app.config['flasks3'] = {
+        'authenticate': flasks3.auth.basic('some', 'user'),
+        'driver': flasks3.drivers.local.LocalStorageDriver('.'),
+    }
+
+    app.register_blueprint(flasks3.blueprint)
+
+    app.run(
+        host=host,
+        port=port,
+        debug=debug_flask,
+    )
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser('Standalone Flask S3 API')
+
+    parser.add_argument('-V', '--version',
+        action='version',
+        version=flasks3.__version__,
+    )
+
+    # Logging Arguments
+    # =================
+
+    parser.set_defaults(log_levels=[logging.ERROR])
+
+    parser.add_argument('-d', '--debug',
+        action='append_const',
+        dest='log_levels',
+        const=logging.DEBUG,
+        help='enabled debug logging',
+    )
+
+    parser.add_argument('-v', '--verbose',
+        action='append_const',
+        dest='log_levels',
+        const=logging.INFO,
+        help='enable verbose logging',
+    )
+
+    parser.add_argument('-l', '--log',
+        dest='log_stream',
+        metavar='LOGFILE',
+        type=argparse.FileType('a'),
+        default=sys.stderr,
+        help='log file [STDERR]',
+    )
+
+    # Flask Arguments
+    # ===============
+
+    parser.add_argument('--debug-flask',
+        action='store_true',
+        help='enable flask debugging',
+    )
+
+    parser.add_argument('--host',
+        default='localhost',
+        help='host to serve on [localhost]',
+    )
+
+    parser.add_argument('--port',
+        default=8080,
+        type=int,
+        help='port to serve on [8080]',
+    )
+
+
+    args = parser.parse_args()
+
+    setup_logging(**args.__dict__)
+
+    logging.debug(args)
+
+    try: main(**args.__dict__)
+    except Exception as err:
+        logging.exception(err)
+        raise
